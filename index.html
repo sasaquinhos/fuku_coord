@@ -23,8 +23,8 @@
           <span id="header-closet-count" class="badge-count">18着</span>
         </button>
         <button id="btn-open-settings" class="btn-header">
-          <span>⚙️ 設定 / 連携</span>
-          <span id="header-sync-status" style="font-size: 10px; background: rgba(0,0,0,0.2); padding: 1px 5px; border-radius: 4px;">未接続</span>
+          <span>⚙️ AI設定</span>
+          <span id="header-sync-status" style="font-size: 10px; background: rgba(0,0,0,0.2); padding: 1px 5px; border-radius: 4px;">シート同期中</span>
         </button>
       </div>
     </header>
@@ -272,14 +272,14 @@
           </div>
 
           <button type="submit" id="btn-save-clothes" class="btn-primary" style="margin-top: 10px;">
-            <span id="btn-save-clothes-text">💾 この服を登録する (スプレッドシートへ即時同期)</span>
+            <span id="btn-save-clothes-text">💾 この服を登録する (スプレッドシートへ自動反映)</span>
           </button>
         </form>
       </div>
 
       <!-- タブ2: 登録済み一覧リスト -->
       <div id="tab-pane-list" class="tab-pane">
-        <!-- カテゴリ絞り込み & 同期ステータス -->
+        <!-- カテゴリ絞り込み & 同期ボタン -->
         <div class="list-filter-bar">
           <div class="type-pill-group" id="list-filter-group">
             <button type="button" class="type-pill active" data-filter="all">すべて</button>
@@ -305,34 +305,21 @@
     </div>
   </div>
 
-  <!-- 設定モーダル (APIキー & GAS設定) -->
+  <!-- 設定モーダル (Gemini APIキー専用) -->
   <div id="modal-settings" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 style="font-size: 18px; font-weight: 700;">⚙️ アプリ・AI・スプレッドシート設定</h3>
+        <h3 style="font-size: 18px; font-weight: 700;">⚙️ AIスタイリスト設定</h3>
         <button class="modal-close" id="btn-close-settings">&times;</button>
       </div>
 
-      <!-- スプレッドシート連携 -->
-      <div class="form-group" style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px;">
-        <label class="form-label" for="setting-gas-url" style="color: #047857; display: flex; justify-content: space-between;">
-          <span>📊 Googleスプレッドシート連携 (GAS WebApp URL)</span>
-          <span id="gas-test-status" style="font-size: 11px; font-weight: normal;">未設定</span>
-        </label>
-        <input type="text" id="setting-gas-url" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
-        <p style="font-size: 11px; color: var(--text-muted); margin-top: 6px; line-height: 1.5;">
-          ※ ここにGASのウェブアプリURLを入力すると、<strong>画面から登録・編集・削除した服がスプレッドシートに自動反映</strong>されます！未設定時はブラウザ内（LocalStorage）のみで動作します。
-        </p>
-      </div>
-
-      <!-- Gemini API連携 -->
       <div class="form-group">
         <label class="form-label" for="setting-gemini-key">
-          🔑 Gemini API キー (無料枠で利用可能)
+          🔑 Gemini API キー (Google AI Studio / 無料枠)
         </label>
         <input type="password" id="setting-gemini-key" class="form-control" placeholder="AIzaSy...">
-        <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-          ※ 未入力の場合は「内蔵スマートモックAI」が自動で最適な組み合わせを選定します。本物のGeminiと通信させたい場合はGoogle AI Studioで無料発行したキーを入力してください。
+        <p style="font-size: 11px; color: var(--text-muted); margin-top: 6px; line-height: 1.5;">
+          ※ 未入力の場合は「内蔵スマートモックAI」が自動で最適な組み合わせを選定します。本物のGeminiとリアルタイム通信させたい場合はキーを入力してください。
         </p>
       </div>
 

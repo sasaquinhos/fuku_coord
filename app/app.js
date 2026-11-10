@@ -1,14 +1,16 @@
 ﻿/**
  * fuku_coord - メインアプリケーションロジック (app.js)
- * Googleスプレッドシート 双方向CRUD同期対応版
+ * Googleスプレッドシート 固定連携版
  */
 
 (function () {
   "use strict";
 
+  // ★ 固定のGoogleスプレッドシート(GAS)ウェブアプリURL
+  const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbzOHxll7ZobP6EEeWYjQyOkGlv2PNrwmOTM-ML7aMUg0uXqPyUQyASHfPZXmkwhDctO/exec";
+
   // --- ストレージキー ---
   const STORAGE_KEY_GEMINI = "fuku_coord_gemini_key";
-  const STORAGE_KEY_GAS = "fuku_coord_gas_url";
   const STORAGE_KEY_CLOTHES = "fuku_coord_clothes_data";
 
   // --- 状態管理 ---
@@ -49,7 +51,7 @@
     stylistMessage: document.getElementById("stylist-message"),
     rackContainer: document.getElementById("coord-rack-container"),
 
-    // 要約カウント & 同期ステータス
+    // 要約カウント
     sumOuter: document.getElementById("sum-outer"),
     sumTop: document.getElementById("sum-top"),
     sumBtm: document.getElementById("sum-btm"),
@@ -57,7 +59,6 @@
     headerCount: document.getElementById("header-closet-count"),
     tabClosetCount: document.getElementById("tab-closet-count"),
     headerSyncStatus: document.getElementById("header-sync-status"),
-    gasTestStatus: document.getElementById("gas-test-status"),
 
     // クローゼット管理モーダル (サブ画面)
     modalCloset: document.getElementById("modal-closet"),
@@ -94,12 +95,11 @@
     btnResetDefault: document.getElementById("btn-reset-default"),
     btnSyncToSheet: document.getElementById("btn-sync-to-sheet"),
 
-    // 設定モーダル
+    // 設定モーダル (Gemini API用)
     modalSettings: document.getElementById("modal-settings"),
     btnOpenSettings: document.getElementById("btn-open-settings"),
     btnCloseSettings: document.getElementById("btn-close-settings"),
     inputGeminiKey: document.getElementById("setting-gemini-key"),
-    inputGasUrl: document.getElementById("setting-gas-url"),
     btnSaveSettings: document.getElementById("btn-save-settings")
   };
 
@@ -112,7 +112,7 @@
     renderSubcatPills("アウター");
     bindEvents();
 
-    // スプレッドシート連携が設定されていれば最新データをシートから取得
+    // 起動時に固定GAS_URLからスプレッドシートの服データを自動取得
     await fetchClothesFromGoogleSheet();
   }
 
@@ -142,30 +142,18 @@
     renderManageClothesList();
   }
 
-  // --- Googleスプレッドシート (GAS) との通信処理 ---
-  function getGasUrl() {
-    return localStorage.getItem(STORAGE_KEY_GAS) || "";
-  }
-
-  // 1. スプレッドシートから服一覧を取得 (GET)
+  // --- Googleスプレッドシート (GAS) との自動通信 ---
   async function fetchClothesFromGoogleSheet() {
-    const gasUrl = getGasUrl();
-    if (!gasUrl) {
-      updateSyncStatusUI("未接続", "#64748b");
-      return;
-    }
-
-    updateSyncStatusUI("シート通信中...", "#d97706");
+    updateSyncStatusUI("同期中...", "#d97706");
     try {
-      const res = await fetch(gasUrl);
+      const res = await fetch(DEFAULT_GAS_URL);
       if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
       const json = await res.json();
 
       if (json.status === "success" && Array.isArray(json.clothes) && json.clothes.length > 0) {
         clothes = json.clothes;
         saveClothesDataLocal();
-        updateSyncStatusUI("シート連携中 (OK)", "#059669");
-        console.log("Synced clothes from Google Sheets:", clothes.length);
+        updateSyncStatusUI("シート同期中 (OK)", "#059669");
       } else {
         updateSyncStatusUI("シート接続済", "#059669");
       }
@@ -175,15 +163,11 @@
     }
   }
 
-  // 2. スプレッドシートへ変更を反映 (POST)
   async function postToGAS(action, payload) {
-    const gasUrl = getGasUrl();
-    if (!gasUrl) return; // 未設定時は何もしない
-
     try {
-      await fetch(gasUrl, {
+      await fetch(DEFAULT_GAS_URL, {
         method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" }, // GASのCORS制約対策
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action, ...payload })
       });
       console.log(`GAS POST [${action}] succeeded`);
@@ -197,10 +181,6 @@
       dom.headerSyncStatus.textContent = text;
       dom.headerSyncStatus.style.background = color ? `${color}33` : "rgba(0,0,0,0.2)";
       dom.headerSyncStatus.style.color = color || "white";
-    }
-    if (dom.gasTestStatus) {
-      dom.gasTestStatus.textContent = text;
-      dom.gasTestStatus.style.color = color || "#047857";
     }
   }
 
@@ -303,12 +283,6 @@
 
     // スプレッドシートに全データを一括転送
     dom.btnSyncToSheet.addEventListener("click", async () => {
-      const gasUrl = getGasUrl();
-      if (!gasUrl) {
-        alert("設定画面でGoogleスプレッドシート(GAS)のURLを設定してください。");
-        dom.modalSettings.classList.add("active");
-        return;
-      }
       if (confirm(`現在クローゼットにある ${clothes.length} 着の服データを、スプレッドシートに一括転送（同期）しますか？\n※スプレッドシートの内容は上書きされます。`)) {
         dom.btnSyncToSheet.textContent = "転送中...";
         await postToGAS("syncAll", { clothes });
@@ -364,7 +338,7 @@
       .join("");
   }
 
-  // --- 服の登録・編集保存処理 (スプレッドシート連携連動) ---
+  // --- 服の登録・編集保存処理 ---
   async function handleSaveClothes(e) {
     e.preventDefault();
 
@@ -390,7 +364,6 @@
     let savedItem;
 
     if (editId) {
-      // 既存編集
       const idx = clothes.findIndex(c => c.id === editId);
       if (idx !== -1) {
         savedItem = {
@@ -407,10 +380,9 @@
           description
         };
         clothes[idx] = savedItem;
-        alert(`「${name}」を更新しました！` + (getGasUrl() ? "（スプレッドシートにも即時反映中）" : ""));
+        alert(`「${name}」を更新しました！（スプレッドシートへ自動反映中）`);
       }
     } else {
-      // 新規登録
       const newId = "item-" + Date.now();
       savedItem = {
         id: newId,
@@ -426,16 +398,14 @@
         description
       };
       clothes.unshift(savedItem);
-      alert(`「${name}」をクローゼットに追加しました！` + (getGasUrl() ? "（スプレッドシートにも自動登録中）" : ""));
+      alert(`「${name}」を登録しました！（スプレッドシートへ自動登録中）`);
     }
 
-    // 1. ローカル保存
     saveClothesDataLocal();
     resetManageForm();
     switchClosetTab("list");
 
-    // 2. Googleスプレッドシートへ自動POST送信
-    if (savedItem && getGasUrl()) {
+    if (savedItem) {
       await postToGAS("save", { item: savedItem });
     }
   }
@@ -457,7 +427,7 @@
 
     dom.formModeBadge.querySelector("span").textContent = "✨ 新しい服を登録";
     dom.btnCancelEdit.style.display = "none";
-    dom.btnSaveClothesText.textContent = "💾 この服を登録する (スプレッドシートへ即時同期)";
+    dom.btnSaveClothesText.textContent = "💾 この服を登録する";
 
     dom.pillCategoryGroup.querySelectorAll(".type-pill").forEach(p => {
       p.classList.toggle("active", p.getAttribute("data-cat") === "アウター");
@@ -485,7 +455,7 @@
 
     dom.formModeBadge.querySelector("span").textContent = `✏️ 「${item.name}」を編集中`;
     dom.btnCancelEdit.style.display = "inline";
-    dom.btnSaveClothesText.textContent = "💾 変更を保存する (スプレッドシートへ即時同期)";
+    dom.btnSaveClothesText.textContent = "💾 変更を保存する";
 
     dom.pillCategoryGroup.querySelectorAll(".type-pill").forEach(p => {
       p.classList.toggle("active", p.getAttribute("data-cat") === item.category);
@@ -495,20 +465,18 @@
     switchClosetTab("form");
   }
 
-  // 削除処理 (スプレッドシート連携連動)
+  // 削除処理
   async function deleteClothes(id) {
     const item = clothes.find(c => c.id === id);
     if (!item) return;
 
-    if (confirm(`「${item.name}」をクローゼットから削除しますか？` + (getGasUrl() ? "\n※スプレッドシートからも削除されます。" : ""))) {
+    if (confirm(`「${item.name}」をクローゼットから削除しますか？\n※スプレッドシートからも自動削除されます。`)) {
       clothes = clothes.filter(c => c.id !== id);
       saveClothesDataLocal();
       if (dom.clothesEditId.value === id) {
         resetManageForm();
       }
-      if (getGasUrl()) {
-        await postToGAS("delete", { item: { id } });
-      }
+      await postToGAS("delete", { item: { id } });
     }
   }
 
@@ -581,32 +549,17 @@
     });
   }
 
-  // --- 設定管理 ---
+  // --- 設定管理 (Gemini API用) ---
   function loadSettings() {
     const key = localStorage.getItem(STORAGE_KEY_GEMINI) || "";
-    const gas = localStorage.getItem(STORAGE_KEY_GAS) || "";
     if (dom.inputGeminiKey) dom.inputGeminiKey.value = key;
-    if (dom.inputGasUrl) dom.inputGasUrl.value = gas;
-    if (gas) {
-      updateSyncStatusUI("シート接続済", "#059669");
-    } else {
-      updateSyncStatusUI("未接続", "#64748b");
-    }
   }
 
-  async function saveSettings() {
+  function saveSettings() {
     const key = dom.inputGeminiKey.value.trim();
-    const gas = dom.inputGasUrl.value.trim();
     localStorage.setItem(STORAGE_KEY_GEMINI, key);
-    localStorage.setItem(STORAGE_KEY_GAS, gas);
     dom.modalSettings.classList.remove("active");
-
-    alert("設定を保存しました！");
-    if (gas) {
-      await fetchClothesFromGoogleSheet();
-    } else {
-      updateSyncStatusUI("未接続", "#64748b");
-    }
+    alert("設定を保存しました！" + (key ? "（Gemini API連携が有効化されました）" : "（内蔵スマートモックAIで動作します）"));
   }
 
   // --- 気温による一次足切りフィルター ---
