@@ -15,7 +15,7 @@
   const STORAGE_KEY_USER = "fuku_coord_user_data";
 
   // --- 状態管理 ---
-  let user = window.DEFAULT_USER || {};
+  let user = {};
   let clothes = [];
   let currentCoord = null;
   let activeListFilter = "all";
@@ -103,7 +103,7 @@
     // 登録済み一覧
     listFilterGroup: document.getElementById("list-filter-group"),
     manageClothesList: document.getElementById("manage-clothes-list"),
-    btnResetDefault: document.getElementById("btn-reset-default"),
+    btnReloadSheet: document.getElementById("btn-reload-sheet"),
     btnSyncToSheet: document.getElementById("btn-sync-to-sheet"),
 
     // 設定モーダル
@@ -136,12 +136,12 @@
       if (stored) {
         user = JSON.parse(stored);
       } else {
-        user = JSON.parse(JSON.stringify(window.DEFAULT_USER || {}));
+        user = {};
         saveUserDataLocal();
       }
     } catch (e) {
       console.error("Failed to load user data", e);
-      user = JSON.parse(JSON.stringify(window.DEFAULT_USER || {}));
+      user = {};
     }
   }
 
@@ -167,12 +167,12 @@
       if (stored) {
         clothes = JSON.parse(stored);
       } else {
-        clothes = JSON.parse(JSON.stringify(window.DEFAULT_CLOTHES || []));
+        clothes = [];
         saveClothesDataLocal();
       }
     } catch (e) {
       console.error("Failed to load clothes data from localStorage", e);
-      clothes = JSON.parse(JSON.stringify(window.DEFAULT_CLOTHES || []));
+      clothes = [];
     }
   }
 
@@ -345,16 +345,14 @@
       }
     });
 
-    // 初期データリセット
-    dom.btnResetDefault.addEventListener("click", () => {
-      if (confirm("登録した服をリセットし、初期データ（18着）に戻しますか？\n※追加したデータは失われます。")) {
-        clothes = JSON.parse(JSON.stringify(window.DEFAULT_CLOTHES || []));
-        saveClothesDataLocal();
-        resetManageForm();
-        postToGAS("syncAll", { clothes });
-        alert("初期データに戻しました。");
-      }
-    });
+    // シートから再読込
+    if (dom.btnReloadSheet) {
+      dom.btnReloadSheet.addEventListener("click", async () => {
+        dom.btnReloadSheet.textContent = "読込中...";
+        await fetchClothesFromGoogleSheet();
+        dom.btnReloadSheet.textContent = "🔄 シートから再読込";
+      });
+    }
 
     // --- 設定モーダル ---
     dom.btnOpenSettings.addEventListener("click", () => dom.modalSettings.classList.add("active"));
