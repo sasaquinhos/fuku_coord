@@ -1,17 +1,18 @@
-﻿/**
+/**
  * fuku_coord - メインアプリケーションロジック (app.js)
- * Googleスプレッドシート 固定連携版
+ * Googleスプレッドシート 固定連携 & ユーザープロフィール編集対応版
  */
 
 (function () {
   "use strict";
 
-  // ★ 固定のGoogleスプレッドシート(GAS)ウェブアプリURL
-  const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbzOHxll7ZobP6EEeWYjQyOkGlv2PNrwmOTM-ML7aMUg0uXqPyUQyASHfPZXmkwhDctO/exec";
+  // ★ 固定のGoogleスプレッドシート(GAS)ウェブアプリURL (最新デプロイ)
+  const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbwWMu6FSKMoxT4VSF16hBLVv1bbF6CwYNOKQSOYBTZ5Y4-c3jgGMStBw1TFEp3k_BWI/exec";
 
   // --- ストレージキー ---
   const STORAGE_KEY_GEMINI = "fuku_coord_gemini_key";
   const STORAGE_KEY_CLOTHES = "fuku_coord_clothes_data";
+  const STORAGE_KEY_USER = "fuku_coord_user_data";
 
   // --- 状態管理 ---
   let user = window.DEFAULT_USER || {};
@@ -32,6 +33,8 @@
     // フォーム
     form: document.getElementById("coord-form"),
     selectUser: document.getElementById("select-user"),
+    selectUserOption: document.getElementById("select-user-option"),
+    btnEditUser: document.getElementById("btn-edit-user"),
     tempRange: document.getElementById("input-temp-range"),
     tempDisplay: document.getElementById("temp-display"),
     tempPresets: document.getElementById("temp-presets"),
@@ -59,6 +62,18 @@
     headerCount: document.getElementById("header-closet-count"),
     tabClosetCount: document.getElementById("tab-closet-count"),
     headerSyncStatus: document.getElementById("header-sync-status"),
+
+    // ユーザープロフィールモーダル
+    modalUser: document.getElementById("modal-user"),
+    btnCloseUser: document.getElementById("btn-close-user"),
+    formUserProfile: document.getElementById("form-user-profile"),
+    userName: document.getElementById("user-name"),
+    userHeight: document.getElementById("user-height"),
+    userWeight: document.getElementById("user-weight"),
+    userHair: document.getElementById("user-hair"),
+    userColor: document.getElementById("user-color"),
+    userStyle: document.getElementById("user-style"),
+    userNote: document.getElementById("user-note"),
 
     // クローゼット管理モーダル (サブ画面)
     modalCloset: document.getElementById("modal-closet"),
@@ -105,8 +120,10 @@
 
   // --- 初期化 ---
   async function init() {
+    loadUserData();
     loadClothesData();
     loadSettings();
+    updateUserSelectDisplay();
     updateClosetSummary();
     renderManageClothesList();
     renderSubcatPills("アウター");
@@ -116,7 +133,38 @@
     await fetchClothesFromGoogleSheet();
   }
 
-  // --- データのロードとローカル保存 ---
+  // --- ユーザープロフィールのロードと保存 ---
+  function loadUserData() {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_USER);
+      if (stored) {
+        user = JSON.parse(stored);
+      } else {
+        user = JSON.parse(JSON.stringify(window.DEFAULT_USER || {}));
+        saveUserDataLocal();
+      }
+    } catch (e) {
+      console.error("Failed to load user data", e);
+      user = JSON.parse(JSON.stringify(window.DEFAULT_USER || {}));
+    }
+  }
+
+  function saveUserDataLocal() {
+    try {
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+    } catch (e) {
+      console.error("Failed to save user data", e);
+    }
+    updateUserSelectDisplay();
+  }
+
+  function updateUserSelectDisplay() {
+    if (dom.selectUserOption) {
+      dom.selectUserOption.textContent = `${user.name || "自分"} (${user.height || 174}cm/${user.weight || 65}kg・${user.preferredStyle || "アメカジ・ワーク"})`;
+    }
+  }
+
+  // --- 服データのロードと保存 ---
   function loadClothesData() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY_CLOTHES);
@@ -186,6 +234,11 @@
 
   // --- イベントバインド ---
   function bindEvents() {
+    // 👤 プロフィール編集モーダル開閉
+    dom.btnEditUser.addEventListener("click", openUserProfileModal);
+    dom.btnCloseUser.addEventListener("click", () => dom.modalUser.classList.remove("active"));
+    dom.formUserProfile.addEventListener("submit", handleSaveUserProfile);
+
     // 気温スライダー
     dom.tempRange.addEventListener("input", (e) => {
       const val = e.target.value;
@@ -309,9 +362,44 @@
 
     // モーダル外クリックで閉じる
     window.addEventListener("click", (e) => {
+      if (e.target === dom.modalUser) dom.modalUser.classList.remove("active");
       if (e.target === dom.modalCloset) dom.modalCloset.classList.remove("active");
       if (e.target === dom.modalSettings) dom.modalSettings.classList.remove("active");
     });
+  }
+
+  // --- 👤 ユーザープロフィールの編集・保存 ---
+  function openUserProfileModal() {
+    dom.userName.value = user.name || "自分";
+    dom.userHeight.value = user.height || 174;
+    dom.userWeight.value = user.weight || 65;
+    dom.userHair.value = user.hairStyle || "";
+    dom.userColor.value = user.personalColor || "不明";
+    dom.userStyle.value = user.preferredStyle || "";
+    dom.userNote.value = user.note || "";
+    dom.modalUser.classList.add("active");
+  }
+
+  async function handleSaveUserProfile(e) {
+    e.preventDefault();
+
+    user = {
+      id: user.id || "user-1",
+      name: dom.userName.value.trim() || "自分",
+      height: parseInt(dom.userHeight.value, 10) || 174,
+      weight: parseInt(dom.userWeight.value, 10) || 65,
+      hairStyle: dom.userHair.value.trim() || "ナチュラル",
+      personalColor: dom.userColor.value,
+      preferredStyle: dom.userStyle.value.trim() || "アメカジ・ワーク",
+      note: dom.userNote.value.trim()
+    };
+
+    saveUserDataLocal();
+    dom.modalUser.classList.remove("active");
+    alert("プロフィールを更新しました！AIスタイリストがこの体型・好みに合わせて提案するようになります。");
+
+    // スプレッドシート側にも非同期保存
+    await postToGAS("saveUser", { user });
   }
 
   // --- サブ画面のタブ切り替え ---
@@ -589,7 +677,7 @@
     dom.resultBox.style.display = "none";
     dom.loadingBox.style.display = "block";
     if (dom.loadingDesc) {
-      dom.loadingDesc.textContent = `気温${currentTemp}℃・「${dest}」に合わせて、手持ち服(${clothes.length}着)から最適な組み合わせを厳選しています`;
+      dom.loadingDesc.textContent = `気温${currentTemp}℃・「${dest}」に合わせて、${user.name || "あなた"}の体型(${user.height || 174}cm/${user.weight || 65}kg)に似合う組み合わせを厳選しています`;
     }
 
     let filteredCandidates = filterByTemperature(currentTemp);
@@ -679,7 +767,7 @@
       .join("");
   }
 
-  // --- 内蔵スマートモックAI ---
+  // --- 内蔵スマートモックAI (ユーザー体型・好みを反映) ---
   function generateMockStylistCoordination({ user, temp, weather, destination, note, candidates, isReroll }) {
     const outers = candidates.filter((c) => c.category === "アウター");
     const tops = candidates.filter((c) => c.category === "トップス");
@@ -698,20 +786,23 @@
     let selTop = safeTops[Math.floor(Math.random() * safeTops.length)];
     let selShoe = safeShoes[Math.floor(Math.random() * safeShoes.length)];
 
-    let comment = `【本日のスタイリング提案：${destination}】\n\n`;
-    comment += `本日は気温${temp}℃・天候${weather}の予報です。お出かけ先の「${destination}」に合わせて、手持ち服から最適なアイテムをセレクトしました。\n\n`;
-    comment += `主役の『${selOuter.name}』に対し、ボトムスに『${selBtm.name}』を合わせています。`;
+    let comment = `【${user.name || "あなた"}様（身長${user.height || 174}cm / ${user.weight || 65}kg）へのスタイリング提案：${destination}】\n\n`;
+    comment += `本日は気温${temp}℃・天候${weather}の予報です。お好みの「${user.preferredStyle || "アメカジ・ワーク"}」テイストを軸に、お出かけ先の「${destination}」に映える組み合わせを厳選しました。\n\n`;
+    comment += `主役の『${selOuter.name}』に対し、ボトムスに『${selBtm.name}』をセット。`;
     if (selOuter.subcategory === "Gジャン" && selBtm.subcategory?.includes("ワーク")) {
-      comment += `短丈のGジャンとワイドなワークパンツのメリハリが効いた、美しいAラインの王道アメカジシルエットです。\n\n`;
+      comment += `短丈のGジャンとワイドなワークパンツのメリハリが効いた、美しいAラインの王道アメカジシルエットです。身長${user.height || 174}cmのバランスを綺麗に引き立てます。\n\n`;
     } else {
       comment += `全体のカラーバランスとシルエットの収まりを考慮して組み合わせました。\n\n`;
     }
 
     comment += `【着こなしのコツ】\n`;
-    comment += `・インナーの『${selTop.name}』で程よい抜け感を演出し、足元の『${selShoe.name}』で全体のバランスを引き締めています。`;
+    comment += `・インナーの『${selTop.name}』で抜け感を演出し、足元の『${selShoe.name}』で重心を安定させています。`;
 
+    if (user.note) {
+      comment += `\n・こだわりメモ「${user.note}」を意識したスタイリングです。`;
+    }
     if (note) {
-      comment += `\n・ご要望の「${note}」のニュアンスも取り入れています！`;
+      comment += `\n・本日のご要望「${note}」もしっかり反映しています！`;
     }
 
     return {
@@ -727,11 +818,14 @@
 
     const promptText = `
 あなたはアメカジ・ワーク・ヴィンテージファッションに精通した一流のパーソナルスタイリストです。
-ユーザー情報と手持ちの服リスト、本日の環境条件から、最高のトータルコーディネート（アウター・トップス・ボトムス・シューズの各1点）を選出し、選定理由と着こなしのアドバイスを記述してください。
+以下のユーザー情報（体型・髪型・好みの系統・こだわり）と手持ち服リスト、本日の環境条件から、最高のトータルコーディネート（アウター・トップス・ボトムス・シューズの各1点）を選出し、選定理由と着こなしのアドバイスを記述してください。
 
 【ユーザー情報】
-身長: ${ctx.user.height}cm, 体重: ${ctx.user.weight}kg, 好みの系統: ${ctx.user.preferredStyle}
-こだわり: ${ctx.user.note}
+お名前: ${ctx.user.name || "自分"}
+身長: ${ctx.user.height}cm, 体重: ${ctx.user.weight}kg, 髪型: ${ctx.user.hairStyle || "ナチュラル"}
+パーソナルカラー: ${ctx.user.personalColor || "未設定"}
+好みの系統: ${ctx.user.preferredStyle || "アメカジ・ワーク・ミリタリー"}
+こだわりメモ: ${ctx.user.note || "特になし"}
 
 【本日の環境・条件】
 気温: ${ctx.temp}℃, 天気: ${ctx.weather}, 目的地・シチュエーション: ${ctx.destination}
@@ -749,7 +843,7 @@ ${ctx.excludeIds && ctx.excludeIds.length > 0 ? `※ 直前の提案と被らな
   "topId": "選んだトップスのid",
   "bottomId": "選んだボトムスのid",
   "shoeId": "選んだシューズのid",
-  "comment": "本日のスタイリングの狙い、シルエットのバランス、着こなしのコツについてのプロの解説文（200〜400文字程度）"
+  "comment": "本日のスタイリングの狙い、ユーザーの体型やこだわりに対するシルエットのアドバイス、着こなしのコツについてのプロの解説文（200〜400文字程度）"
 }
 `;
 
