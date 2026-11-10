@@ -1,13 +1,14 @@
-﻿/**
+/**
  * fuku_coord - 手持ちクローゼット初期データ (mockData.js)
  * お出かけ用 Gジャン・ワークパンツ中心のサンプル
+ * (※ 気温範囲はAIがアイテム名・素材・季節感から自動判断します)
  */
 
 const DEFAULT_USER = {
   id: "user-1",
   name: "自分 (マスター)",
-  height: 174,
-  weight: 65,
+  height: 175,
+  weight: 85,
   hairStyle: "ショート / 刈り上げナチュラル",
   personalColor: "イエベ秋",
   preferredStyle: "アメカジ・ワーク・ミリタリー・大人カジュアル",
@@ -24,10 +25,7 @@ const DEFAULT_CLOTHES = [
     brand: "Levi's / LVC 506XX",
     color: "濃紺 (ワンウォッシュ・リジッド)",
     fit: "ボックスシルエット・短丈",
-    tempMin: 14,
-    tempMax: 22,
-    formality: 2,
-    tags: ["短丈", "濃紺", "無骨", "王道アメカジ"],
+    tags: ["短丈", "濃紺", "無骨", "王道アメカジ", "春・秋"],
     description: "シンチバック付きの1stモデル。着丈が短く、太いパンツと最高の相性。"
   },
   {
@@ -38,10 +36,7 @@ const DEFAULT_CLOTHES = [
     brand: "FULLCOUNT / 2107",
     color: "ライトインディゴ (ヒゲ・色落ち加工)",
     fit: "ややゆったり・短丈",
-    tempMin: 15,
-    tempMax: 24,
-    formality: 2,
-    tags: ["色落ち", "爽やか", "ヴィンテージ感"],
+    tags: ["色落ち", "爽やか", "ヴィンテージ感", "春・秋・初夏"],
     description: "爽やかな色落ちの2ndモデル。春先や秋口の街歩きに最適。"
   },
   {
@@ -52,10 +47,7 @@ const DEFAULT_CLOTHES = [
     brand: "WAREHOUSE",
     color: "ブラック (先染め・フェード)",
     fit: "レギュラーフィット",
-    tempMin: 12,
-    tempMax: 20,
-    formality: 3,
-    tags: ["黒デニム", "シャープ", "都会的"],
+    tags: ["黒デニム", "シャープ", "都会的", "秋・冬・春"],
     description: "落ち着いたブラックデニム。カフェや夜のお出かけでシックにまとめたい時に。"
   },
   {
@@ -66,10 +58,7 @@ const DEFAULT_CLOTHES = [
     brand: "Post O'Alls",
     color: "インディゴブルー",
     fit: "ゆったり・ミドル丈",
-    tempMin: 12,
-    tempMax: 19,
-    formality: 2,
-    tags: ["カバーオール", "ポケット多数", "リラックス"],
+    tags: ["カバーオール", "ポケット多数", "リラックス", "春・秋"],
     description: "着丈が長めのクラシックなワークカバーオール。ラフに羽織れる。"
   },
   {
@@ -80,10 +69,7 @@ const DEFAULT_CLOTHES = [
     brand: "米軍実物 / 80s",
     color: "オリーブドラブ",
     fit: "オーバーサイズ",
-    tempMin: 8,
-    tempMax: 17,
-    formality: 2,
-    tags: ["ミリタリー", "武骨", "防風"],
+    tags: ["ミリタリー", "武骨", "防風", "秋・冬・肌寒い日"],
     description: "肌寒い日やドライブに最適なミリタリーアウター。"
   },
   {
@@ -94,10 +80,7 @@ const DEFAULT_CLOTHES = [
     brand: "Rocky Mountain",
     color: "ネイビー × レザーヨーク(キャメル)",
     fit: "ジャスト",
-    tempMin: 10,
-    tempMax: 18,
-    formality: 2,
-    tags: ["重ね着", "レザー切り替え", "温度調節"],
+    tags: ["重ね着", "レザー切り替え", "温度調節", "秋冬"],
     description: "Gジャンの上やネルシャツの上に重ね着して気温調節に重宝する。"
   },
 
@@ -110,10 +93,7 @@ const DEFAULT_CLOTHES = [
     brand: "Goodwear / 7.2oz",
     color: "ホワイト (オフホワイト)",
     fit: "ボックス・肉厚",
-    tempMin: 18,
-    tempMax: 30,
-    formality: 2,
-    tags: ["白T", "肉厚", "インナー最適", "タックイン可"],
+    tags: ["白T", "肉厚", "インナー最適", "タックイン可", "夏・オールシーズン"],
     description: "Gジャンのインナーに一番映える、ガシッとした肉厚ホワイトT。"
   },
   {
@@ -124,10 +104,7 @@ const DEFAULT_CLOTHES = [
     brand: "Buzz Rickson's",
     color: "サックスブルー",
     fit: "クラシックフィット",
-    tempMin: 16,
-    tempMax: 25,
-    formality: 3,
-    tags: ["シャンブレー", "猫目ボタン", "上品ワーク"],
+    tags: ["シャンブレー", "猫目ボタン", "上品ワーク", "春・秋・初夏"],
     description: "ワークパンツにもGジャンにも抜群に馴染むシャンブレーシャツ。"
   },
   {
@@ -138,10 +115,7 @@ const DEFAULT_CLOTHES = [
     brand: "Champion",
     color: "杢グレー (ヘザーグレー)",
     fit: "ややゆったり・肉厚",
-    tempMin: 10,
-    tempMax: 19,
-    formality: 2,
-    tags: ["肉厚スウェット", "定番", "カレッジライク"],
+    tags: ["肉厚スウェット", "定番", "カレッジライク", "秋冬・肌寒い日"],
     description: "Gジャンの中に着込むと最高にキマる王道の肉厚スウェット。"
   },
   {
@@ -152,10 +126,7 @@ const DEFAULT_CLOTHES = [
     brand: "Saint James / ウェッソン",
     color: "ホワイト × ネイビー",
     fit: "ボートネック・レギュラー",
-    tempMin: 15,
-    tempMax: 24,
-    formality: 3,
-    tags: ["ボーダー", "フレンチカジュアル", "清潔感"],
+    tags: ["ボーダー", "フレンチカジュアル", "清潔感", "春秋"],
     description: "無骨なワークパンツに合わせると程よい清潔感と抜け感が出る。"
   },
   {
@@ -166,10 +137,7 @@ const DEFAULT_CLOTHES = [
     brand: "JELADO",
     color: "ナチュラル (生成り)",
     fit: "ジャスト",
-    tempMin: 12,
-    tempMax: 20,
-    formality: 2,
-    tags: ["サーマル", "レイヤード", "保温性"],
+    tags: ["サーマル", "レイヤード", "保温性", "秋冬・肌寒い日"],
     description: "シャツやGジャンの下に着る保温性抜群のインナー。"
   },
   {
@@ -180,10 +148,7 @@ const DEFAULT_CLOTHES = [
     brand: "Harley of Scotland",
     color: "バーガンディ (ワインレッド)",
     fit: "レギュラー",
-    tempMin: 5,
-    tempMax: 15,
-    formality: 4,
-    tags: ["ウールニット", "差し色", "キレイめ"],
+    tags: ["ウールニット", "差し色", "キレイめ", "真冬・寒い日"],
     description: "秋冬の暗くなりがちなコーデに大人っぽい差し色を加えるニット。"
   },
 
@@ -196,10 +161,7 @@ const DEFAULT_CLOTHES = [
     brand: "米軍実物デッドストック",
     color: "オリーブドラブ",
     fit: "超ワイド・極太ストレート",
-    tempMin: 10,
-    tempMax: 26,
-    formality: 1,
-    tags: ["極太", "カーゴ", "ミリタリー", "短丈Gジャンに最高"],
+    tags: ["極太", "カーゴ", "ミリタリー", "短丈Gジャンに最高", "通年"],
     description: "ボリューム感満点の軍パン。短丈の濃紺Gジャンと合わせるだけで王道Aラインが完成。"
   },
   {
@@ -210,10 +172,7 @@ const DEFAULT_CLOTHES = [
     brand: "Carhartt / B01",
     color: "カーハートブラウン (キャメル)",
     fit: "ワイドストレート",
-    tempMin: 10,
-    tempMax: 24,
-    formality: 2,
-    tags: ["ダック地", "ダブルニー", "無骨ワーク", "キャメル色"],
+    tags: ["ダック地", "ダブルニー", "無骨ワーク", "キャメル色", "通年・タフ"],
     description: "タフなダック生地とリベット打ち。デニムジャケットのブルーとキャメルの補色バランスが完璧。"
   },
   {
@@ -224,10 +183,7 @@ const DEFAULT_CLOTHES = [
     brand: "Stan Ray / USA製",
     color: "エクリュ / 生成り (オフホワイト)",
     fit: "ワイドテーパード",
-    tempMin: 14,
-    tempMax: 28,
-    formality: 3,
-    tags: ["白系パンツ", "爽やか", "ペインター", "抜け感"],
+    tags: ["白系パンツ", "爽やか", "ペインター", "抜け感", "春夏秋"],
     description: "濃紺Gジャンの重さを一気に中和してくれる清潔感あるワークパンツ。"
   },
   {
@@ -238,10 +194,7 @@ const DEFAULT_CLOTHES = [
     brand: "Buzz Rickson's",
     color: "カーキ (ベージュ)",
     fit: "太めストレート",
-    tempMin: 12,
-    tempMax: 27,
-    formality: 3,
-    tags: ["チノパン", "ベージュ", "万能", "大人カジュアル"],
+    tags: ["チノパン", "ベージュ", "万能", "大人カジュアル", "通年"],
     description: "どんなアウターにも合う万能なワイドチノ。カフェやお出かけにも上品。"
   },
   {
@@ -252,10 +205,7 @@ const DEFAULT_CLOTHES = [
     brand: "Dickies",
     color: "チャコールグレー",
     fit: "ストレート",
-    tempMin: 10,
-    tempMax: 26,
-    formality: 3,
-    tags: ["TCツイル", "シワになりにくい", "都会的ワーク"],
+    tags: ["TCツイル", "シワになりにくい", "都会的ワーク", "通年"],
     description: "ハリ感のあるTCツイル。ブラックGジャンや色落ちGジャンと相性良し。"
   },
   {
@@ -266,10 +216,7 @@ const DEFAULT_CLOTHES = [
     brand: "orSlow / 01-5002",
     color: "オリーブグリーン",
     fit: "ややゆったりテーパード",
-    tempMin: 12,
-    tempMax: 28,
-    formality: 2,
-    tags: ["ベイカーパンツ", "柔らかな生地", "履き心地抜群"],
+    tags: ["ベイカーパンツ", "柔らかな生地", "履き心地抜群", "通年"],
     description: "程よい太さで履きやすいベイカー。Gジャンとの鉄板コンビ。"
   },
 
@@ -282,10 +229,7 @@ const DEFAULT_CLOTHES = [
     brand: "RED WING",
     color: "オロレガシー (赤茶・ブラウン)",
     fit: "Eワイズ",
-    tempMin: 0,
-    tempMax: 25,
-    formality: 2,
-    tags: ["ワークブーツ", "本革", "無骨", "エイジング"],
+    tags: ["ワークブーツ", "本革", "無骨", "エイジング", "秋冬春・雨の日も可"],
     description: "ワークパンツ×Gジャンを完璧に引き締める至高のワークブーツ。"
   },
   {
@@ -296,10 +240,7 @@ const DEFAULT_CLOTHES = [
     brand: "Converse",
     color: "ブラック",
     fit: "ハイカット",
-    tempMin: 10,
-    tempMax: 32,
-    formality: 2,
-    tags: ["定番スニーカー", "歩きやすい", "街歩き"],
+    tags: ["定番スニーカー", "歩きやすい", "街歩き", "通年"],
     description: "太いパンツの裾を綺麗に乗せられる万能スニーカー。"
   },
   {
@@ -310,10 +251,7 @@ const DEFAULT_CLOTHES = [
     brand: "New Balance",
     color: "グレー",
     fit: "Dワイズ",
-    tempMin: 5,
-    tempMax: 32,
-    formality: 2,
-    tags: ["ハイテクスニーカー", "極上の履き心地", "抜け感"],
+    tags: ["ハイテクスニーカー", "極上の履き心地", "抜け感", "通年"],
     description: "アメカジにあえて合わせるグレーのニューバランス。程よいシティ感をプラス。"
   }
 ];
