@@ -198,9 +198,22 @@
       if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
       const json = await res.json();
 
-      if (json.status === "success" && Array.isArray(json.clothes) && json.clothes.length > 0) {
-        clothes = json.clothes;
-        saveClothesDataLocal();
+      if (json.status === "success") {
+        // 服データの同期
+        if (Array.isArray(json.clothes) && json.clothes.length > 0) {
+          clothes = json.clothes;
+          saveClothesDataLocal();
+        }
+        // ユーザープロフィールの同期 (スプレッドシートから読み込み)
+        if (json.user && json.user.name) {
+          user = {
+            ...user,
+            ...json.user,
+            height: Number(json.user.height || user.height || 174),
+            weight: Number(json.user.weight || user.weight || 65)
+          };
+          saveUserDataLocal();
+        }
         updateSyncStatusUI("シート同期中 (OK)", "#059669");
       } else {
         updateSyncStatusUI("シート接続済", "#059669");
