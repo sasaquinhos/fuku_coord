@@ -1,52 +1,47 @@
-﻿// ========================================
+// ========================================
 // fuku_coord 用 Google Apps Script (code.gs)
 // ========================================
-// 画面から登録・編集・削除した服を、Googleスプレッドシートに自動反映します。
+// 画面から登録・編集・削除した服およびプロフィールを、Googleスプレッドシートに自動反映します。
+// ※ 気温範囲は人間がいちいち入力せず、AIがアイテム名や特徴から自律的に判断します。
 //
-// 【必要なスプレッドシートの構成】
-// 1行目に以下のヘッダー（列名）を作成してください：
-// A列: id
-// B列: category
-// C列: subcategory
-// D列: name
-// E列: brand
-// F列: color
-// G列: fit
-// H列: tempMin
-// I列: tempMax
-// J列: tags
-// K列: description
+// 【スプレッドシートの構成】
+// 1.「clothes」シート (服データ)
+//    A列: id, B列: category, C列: subcategory, D列: name, E列: brand, F列: color, G列: fit, H列: tags, I列: description
+//
+// 2.「users」シート (プロフィールデータ)
+//    A列: id, B列: name, C列: height, D列: weight, E列: hairStyle, F列: personalColor, G列: preferredStyle, H列: note
 // ========================================
 
-// ★ あなたの Google スプレッドシートのIDをここに設定してください
-// （例: https://docs.google.com/spreadsheets/d/1ABC123xyz.../edit の「1ABC123xyz...」の部分）
 const SPREADSHEET_ID = "1Qt6eAZMcVEKOLhv_ok3JD5XcVn4BN-nc27GZHL1a4iU";
-const SHEET_NAME = "clothes";
+const SHEET_NAME_CLOTHES = "clothes";
+const SHEET_NAME_USERS = "users";
 
 /**
- * GET リクエスト: スプレッドシートから服一覧を取得して画面に返す
+ * GET リクエスト: スプレッドシートから服一覧およびユーザー情報を取得
  */
 function doGet(e) {
   try {
     if (!SPREADSHEET_ID || SPREADSHEET_ID === "YOUR_SPREADSHEET_ID_HERE") {
       return createJsonResponse({
         status: "error",
-        message: "code.gs の SPREADSHEET_ID が未設定です。スプレッドシートIDを設定してください。"
+        message: "code.gs の SPREADSHEET_ID が未設定です。"
       });
     }
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
-    const clothes = readSheetToObjects(sheet);
+    const clothesSheet = ss.getSheetByName(SHEET_NAME_CLOTHES) || ss.getSheets()[0];
+    const clothes = readSheetToObjects(clothesSheet);
+
+    const usersSheet = ss.getSheetByName(SHEET_NAME_USERS);
+    const users = usersSheet ? readSheetToObjects(usersSheet) : [];
 
     return createJsonResponse({
       status: "success",
       clothes: clothes.map(c => ({
         ...c,
-        tempMin: Number(c.tempMin || 10),
-        tempMax: Number(c.tempMax || 25),
         tags: c.tags ? String(c.tags).split(/[,、]/).map(t => t.trim()).filter(Boolean) : []
-      }))
+      })),
+      user: users[0] || null
     });
   } catch (err) {
     return createJsonResponse({
@@ -57,7 +52,7 @@ function doGet(e) {
 }
 
 /**
- * POST リクエスト: 画面からの「登録」「編集」「削除」をスプレッドシートに反映
+ * POST リクエスト: 服の追加・更新・削除、およびプロフィールの保存
  */
 function doPost(e) {
   try {
@@ -69,27 +64,28 @@ function doPost(e) {
     }
 
     const body = JSON.parse(e.postData.contents);
-    const action = body.action; // "save" または "delete" または "syncAll"
-    const item = body.item;
-
+    const action = body.action;
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
 
-    // ヘッダー定義
-    const headers = ["id", "category", "subcategory", "name", "brand", "color", "fit", "tempMin", "tempMax", "tags", "description"];
-    ensureHeaders(sheet, headers);
+    // 1. プロフィール保存
+    if (action === "saveUser") {
+      saveUserProfile(ss, body.user);
+      return createJsonResponse({ status: "success", message: "プロフィールをスプレッドシートに保存しました。" });
+    }
+
+    // 2. 服データの保存・削除・一括同期
+    const clothesSheet = ss.getSheetByName(SHEET_NAME_CLOTHES) || ss.getSheets()[0];
+    const headers = ["id", "category", "subcategory", "name", "brand", "color", "fit", "tags", "description"];
+    ensureHeaders(clothesSheet, headers);
 
     if (action === "save") {
-      // 追加または更新
-      saveOrUpdateItem(sheet, headers, item);
-      return createJsonResponse({ status: "success", message: "スプレッドシートに保存しました。" });
+      saveOrUpdateItem(clothesSheet, headers, body.item);
+      return createJsonResponse({ status: "success", message: "スプレッドシートに服を保存しました。" });
     } else if (action === "delete") {
-      // 削除
-      deleteItemById(sheet, item.id);
-      return createJsonResponse({ status: "success", message: "スプレッドシートから削除しました。" });
+      deleteItemById(clothesSheet, body.item.id);
+      return createJsonResponse({ status: "success", message: "スプレッドシートから服を削除しました。" });
     } else if (action === "syncAll") {
-      // 画面の服一覧でスプレッドシートを丸ごと初期化・同期
-      syncAllItems(sheet, headers, body.clothes || []);
+      syncAllItems(clothesSheet, headers, body.clothes || []);
       return createJsonResponse({ status: "success", message: "全データをスプレッドシートに一括同期しました。" });
     }
 
@@ -103,7 +99,29 @@ function doPost(e) {
 }
 
 /**
- * 1件の保存または更新
+ * ユーザープロフィールの保存
+ */
+function saveUserProfile(ss, user) {
+  let sheet = ss.getSheetByName(SHEET_NAME_USERS);
+  const userHeaders = ["id", "name", "height", "weight", "hairStyle", "personalColor", "preferredStyle", "note"];
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME_USERS);
+    sheet.appendRow(userHeaders);
+  } else {
+    ensureHeaders(sheet, userHeaders);
+  }
+
+  const rowValues = userHeaders.map(h => user[h] !== undefined ? user[h] : "");
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, 1, userHeaders.length).setValues([rowValues]);
+  } else {
+    sheet.appendRow(rowValues);
+  }
+}
+
+/**
+ * 1件の服の保存または更新
  */
 function saveOrUpdateItem(sheet, headers, item) {
   const data = sheet.getDataRange().getValues();
@@ -112,7 +130,7 @@ function saveOrUpdateItem(sheet, headers, item) {
 
   for (let r = 1; r < data.length; r++) {
     if (String(data[r][idColIdx]) === String(item.id)) {
-      targetRow = r + 1; // 1-indexed
+      targetRow = r + 1;
       break;
     }
   }
@@ -125,10 +143,8 @@ function saveOrUpdateItem(sheet, headers, item) {
   });
 
   if (targetRow > 0) {
-    // 既存行を更新
     sheet.getRange(targetRow, 1, 1, headers.length).setValues([rowValues]);
   } else {
-    // 新規行を追加
     sheet.appendRow(rowValues);
   }
 }
@@ -166,9 +182,6 @@ function syncAllItems(sheet, headers, clothesList) {
   sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
 }
 
-/**
- * 1行目のヘッダーが存在しない場合に作成
- */
 function ensureHeaders(sheet, headers) {
   const lastRow = sheet.getLastRow();
   if (lastRow === 0) {
@@ -176,9 +189,6 @@ function ensureHeaders(sheet, headers) {
   }
 }
 
-/**
- * シートデータをオブジェクト配列として取得
- */
 function readSheetToObjects(sheet) {
   const values = sheet.getDataRange().getValues();
   if (values.length <= 1) return [];
