@@ -68,7 +68,7 @@
                 </button>
               </div>
               <select id="select-user" class="form-select">
-                <option value="user-1" id="select-user-option">自分 (174cm/65kg・アメカジ・ワーク好き)</option>
+                <option value="user-1" id="select-user-option">自分 (175cm/85kg・アメカジ・ワーク好き)</option>
               </select>
             </div>
 
@@ -135,7 +135,7 @@
           <div class="spinner"></div>
           <h3 style="font-size: 16px; margin-bottom: 6px;">AIスタイリストがコーディネート中...</h3>
           <p style="font-size: 13px; color: var(--text-muted);" id="loading-desc">
-            気温18℃・目的地に合わせて、手持ちのGジャンとワークパンツから最高の組み合わせを厳選しています
+            気温と目的地に合わせて、手持ちの服から最適な組み合わせをAIが厳選しています
           </p>
         </div>
 
@@ -145,7 +145,7 @@
           <h3 style="font-size: 18px; margin-bottom: 8px;">何を着るか迷ったらAIにおまかせ！</h3>
           <p style="font-size: 13px; max-width: 420px; margin: 0 auto 16px;">
             左のパネルで「目的地」や「気温」を選んでボタンを押すか、<br>「今日のおまかせ！」をクリックしてください。<br>
-            新しい服が増えたら、右上の「クローゼット管理」からすぐに追加できます！
+            気温や季節感に合わせた服の選定は、すべてAIが自動で判断します！
           </p>
         </div>
 
@@ -199,11 +199,11 @@
         <div class="form-row-2">
           <div class="form-group">
             <label class="form-label" for="user-height">📏 身長 (cm)</label>
-            <input type="number" id="user-height" class="form-control" min="100" max="230" required placeholder="例: 174">
+            <input type="number" id="user-height" class="form-control" min="100" max="230" required placeholder="例: 175">
           </div>
           <div class="form-group">
             <label class="form-label" for="user-weight">⚖️ 体重 (kg)</label>
-            <input type="number" id="user-weight" class="form-control" min="30" max="180" required placeholder="例: 65">
+            <input type="number" id="user-weight" class="form-control" min="30" max="180" required placeholder="例: 85">
           </div>
         </div>
 
@@ -311,27 +311,10 @@
             </div>
           </div>
 
-          <!-- 適正気温 (スライダー) -->
+          <!-- 特徴タグ & メモ (気温範囲は削除し、AIが賢く判断) -->
           <div class="form-group">
-            <label class="form-label">🌡️ 着るのにちょうどいい気温帯</label>
-            <div class="temp-range-dual">
-              <div>
-                <span style="font-size: 11px; color: var(--text-muted);">最低気温: </span>
-                <strong id="label-temp-min" style="color: var(--primary);">12℃</strong>
-                <input type="range" id="clothes-temp-min" min="0" max="30" value="12" step="1">
-              </div>
-              <div>
-                <span style="font-size: 11px; color: var(--text-muted);">最高気温: </span>
-                <strong id="label-temp-max" style="color: var(--primary);">22℃</strong>
-                <input type="range" id="clothes-temp-max" min="5" max="35" value="22" step="1">
-              </div>
-            </div>
-          </div>
-
-          <!-- 特徴タグ & メモ -->
-          <div class="form-group">
-            <label class="form-label" for="clothes-tags">🔖 特徴タグ (カンマ区切り)</label>
-            <input type="text" id="clothes-tags" class="form-control" placeholder="例: 短丈, 濃紺, 無骨, Aライン">
+            <label class="form-label" for="clothes-tags">🔖 特徴・季節感タグ (カンマ区切り)</label>
+            <input type="text" id="clothes-tags" class="form-control" placeholder="例: 短丈, 濃紺, 肉厚, 春秋用, 冬向け">
           </div>
 
           <div class="form-group">
