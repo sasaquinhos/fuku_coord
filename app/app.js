@@ -565,9 +565,79 @@
     });
   }
 
-  async function analyzeClothesPhotoWithGemini(apiKey, base64Data, mimeType) {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  // --- Gemini API 共通呼び出し（利用可能なモデルを自動検出 & 自動フォールバック） ---
+  async function callGeminiGenerateContent(apiKey, payload) {
+    // 試行するモデル候補（デフォルト）
+    let targetModels = [
+      "gemini-2.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-1.5-flash-8b",
+      "gemini-1.5-pro",
+      "gemini-2.0-flash-exp"
+    ];
 
+    // APIキーで利用可能なモデル一覧を動的取得
+    try {
+      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        if (Array.isArray(listData.models)) {
+          const available = listData.models
+            .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+            .map(m => m.name.replace(/^models\//, ""));
+
+          const flashes = available.filter(m => m.includes("flash"));
+          const others = available.filter(m => !m.includes("flash"));
+          if (flashes.length > 0 || others.length > 0) {
+            targetModels = [...flashes, ...others];
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("モデル一覧の取得をスキップし、既定候補を使用します:", e.message);
+    }
+
+    let lastError = null;
+    for (const model of targetModels) {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          return data;
+        }
+
+        const errJson = await res.json().catch(() => ({}));
+        const msg = errJson.error ? errJson.error.message : res.statusText;
+        lastError = new Error(`Gemini APIエラー (${res.status} [${model}]): ${msg}`);
+
+        // 404（モデルが存在しない）なら次のモデルへフォールバック
+        if (res.status === 404) {
+          console.warn(`[${model}] 404 Not Found. 次の候補モデルを試します...`);
+          continue;
+        }
+
+        // 404以外の認証エラー等はそのまま通知
+        throw lastError;
+      } catch (err) {
+        if (err.message && err.message.includes("404")) {
+          lastError = err;
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw lastError || new Error("利用可能なGeminiモデルが見つかりませんでした。APIキーを確認してください。");
+  }
+
+  async function analyzeClothesPhotoWithGemini(apiKey, base64Data, mimeType) {
     const promptText = `
 あなたはアメカジ・ワーク・ミリタリー・ヴィンテージファッションに精通したアパレル専門家です。
 提供された服の写真画像を観察し、カタログ登録用の情報を以下の厳密なJSON形式のみで出力してください。
@@ -607,18 +677,7 @@
       }
     };
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      throw new Error(`Gemini APIエラー (${res.status}): ${errJson.error ? errJson.error.message : res.statusText}`);
-    }
-
-    const data = await res.json();
+    const data = await callGeminiGenerateContent(apiKey, payload);
     const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!candidateText) throw new Error("Geminiからの解析応答が空でした。");
 
@@ -936,8 +995,6 @@
 
   // --- Gemini API (Google AI Studio) 呼び出し ---
   async function fetchGeminiStylist(apiKey, ctx) {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
     const promptText = `
 あなたはアメカジ・ワーク・ヴィンテージファッションに精通した一流のパーソナルスタイリストです。
 以下のユーザー情報と手持ち服リスト、本日の環境条件から、最高のトータルコーディネート（アウター・トップス・ボトムス・シューズの各1点）を選出し、選定理由と着こなしのアドバイスを記述してください。
@@ -979,18 +1036,7 @@ ${ctx.excludeIds && ctx.excludeIds.length > 0 ? `※ 直前の提案と被らな
       }
     };
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      throw new Error(`Gemini APIエラー (${res.status}): ${errJson.error ? errJson.error.message : res.statusText}`);
-    }
-
-    const data = await res.json();
+    const data = await callGeminiGenerateContent(apiKey, payload);
     const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!candidateText) throw new Error("Geminiからの応答が空でした。");
 
