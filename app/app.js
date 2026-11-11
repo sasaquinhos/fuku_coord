@@ -596,22 +596,49 @@
     });
   }
 
-  // --- Gemini API 共通呼び出し（安全・高速なモデルフォールバック） ---
+  // --- Gemini API 共通呼び出し（利用可能なモデルを動的取得 & 安全フォールバック） ---
   async function callGeminiGenerateContent(apiKey, payload) {
-    // 試行するモデル候補（画像認識とテキストに対応した公式主力モデル順）
-    const targetModels = [
-      "gemini-2.0-flash",
-      "gemini-1.5-flash",
-      "gemini-2.5-flash",
-      "gemini-1.5-pro"
-    ];
+    let targetModels = [];
+
+    // ① APIキーで現在利用可能なモデル一覧を直接問い合わせ
+    try {
+      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        if (Array.isArray(listData.models)) {
+          // generateContent対応 かつ 音声専用(-tts)などを除外した「画像対応モデル」を抽出
+          const validModels = listData.models
+            .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+            .map(m => m.name.replace(/^models\//, ""))
+            .filter(name => !name.includes("-tts") && !name.includes("-audio") && !name.includes("-speech") && !name.includes("embedding"));
+
+          // flash系を最優先にソート
+          const flashes = validModels.filter(m => m.includes("flash"));
+          const others = validModels.filter(m => !m.includes("flash"));
+          targetModels = [...flashes, ...others];
+          console.log("利用可能な画像対応モデル一覧:", targetModels);
+        }
+      }
+    } catch (e) {
+      console.warn("モデル一覧の動的取得に失敗、予備リストを使用します:", e.message);
+    }
+
+    // 取得できなかった場合の予備リスト
+    if (targetModels.length === 0) {
+      targetModels = [
+        "gemini-2.5-flash-preview",
+        "gemini-2.0-flash",
+        "gemini-2.5-flash",
+        "gemini-1.5-flash"
+      ];
+    }
 
     let lastError = null;
     for (const model of targetModels) {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20秒タイムアウト
+        const timeoutId = setTimeout(() => controller.abort(), 25000); // 25秒タイムアウト
 
         const res = await fetch(endpoint, {
           method: "POST",
