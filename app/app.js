@@ -99,6 +99,9 @@
     clothesTags: document.getElementById("clothes-tags"),
     clothesDesc: document.getElementById("clothes-desc"),
     btnSaveClothesText: document.getElementById("btn-save-clothes-text"),
+    inputClothesPhoto: document.getElementById("input-clothes-photo"),
+    photoAnalyzingBox: document.getElementById("photo-analyzing-box"),
+    photoAnalyzingText: document.getElementById("photo-analyzing-text"),
 
     // 登録済み一覧
     listFilterGroup: document.getElementById("list-filter-group"),
@@ -322,6 +325,11 @@
     // 編集キャンセル
     dom.btnCancelEdit.addEventListener("click", resetManageForm);
 
+    // 写真からAI自動入力
+    if (dom.inputClothesPhoto) {
+      dom.inputClothesPhoto.addEventListener("change", handlePhotoUpload);
+    }
+
     // 服登録・更新の保存
     dom.formManageClothes.addEventListener("submit", handleSaveClothes);
 
@@ -488,6 +496,133 @@
     if (savedItem) {
       await postToGAS("save", { item: savedItem });
     }
+  }
+
+  // --- 📷 写真から服情報をAI解析してフォームへ自動入力 ---
+  async function handlePhotoUpload(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    const apiKey = localStorage.getItem(STORAGE_KEY_GEMINI);
+    if (!apiKey) {
+      alert("写真から服の情報を読み取るには、Gemini APIキーが必要です。\n右上の「⚙️ AI設定」からキーを入力してください（Google AI Studioで無料取得できます）。");
+      dom.inputClothesPhoto.value = "";
+      dom.modalSettings.classList.add("active");
+      return;
+    }
+
+    try {
+      if (dom.photoAnalyzingBox) dom.photoAnalyzingBox.style.display = "flex";
+
+      // 画像をBase64に変換
+      const base64Data = await readFileAsBase64(file);
+      const mimeType = file.type || "image/jpeg";
+
+      // Gemini Visionで解析
+      const analyzed = await analyzeClothesPhotoWithGemini(apiKey, base64Data, mimeType);
+
+      if (analyzed) {
+        // フォームへ自動反映
+        if (analyzed.category) {
+          dom.pillCategoryGroup.querySelectorAll(".type-pill").forEach(p => {
+            p.classList.toggle("active", p.getAttribute("data-cat") === analyzed.category);
+          });
+          renderSubcatPills(analyzed.category);
+        }
+
+        if (analyzed.name) dom.clothesName.value = analyzed.name;
+        if (analyzed.subcategory) dom.clothesSubcat.value = analyzed.subcategory;
+        if (analyzed.brand) dom.clothesBrand.value = analyzed.brand;
+        if (analyzed.color) dom.clothesColor.value = analyzed.color;
+        if (analyzed.fit) dom.clothesFit.value = analyzed.fit;
+        if (analyzed.tags) {
+          dom.clothesTags.value = Array.isArray(analyzed.tags) ? analyzed.tags.join(", ") : analyzed.tags;
+        }
+        if (analyzed.description) dom.clothesDesc.value = analyzed.description;
+
+        alert(`✨ AIが写真から服の特徴を下書きしました！\n\n【アイテム名】: ${analyzed.name}\n【分類】: ${analyzed.category} / ${analyzed.subcategory || ""}\n【色】: ${analyzed.color || ""}\n【シルエット】: ${analyzed.fit || ""}\n\n内容を確認・必要に応じて微調整の上、下の「この服を登録する」ボタンを押してください。`);
+      }
+    } catch (err) {
+      console.error("Photo analysis failed:", err);
+      alert("写真のAI分析に失敗しました。\nエラー詳細: " + err.message);
+    } finally {
+      if (dom.photoAnalyzingBox) dom.photoAnalyzingBox.style.display = "none";
+      dom.inputClothesPhoto.value = "";
+    }
+  }
+
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        // data:image/jpeg;base64,xxxx のヘッダーをカット
+        const base64 = typeof result === "string" ? result.split(",")[1] : "";
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function analyzeClothesPhotoWithGemini(apiKey, base64Data, mimeType) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+    const promptText = `
+あなたはアメカジ・ワーク・ミリタリー・ヴィンテージファッションに精通したアパレル専門家です。
+提供された服の写真画像を観察し、カタログ登録用の情報を以下の厳密なJSON形式のみで出力してください。
+
+【出力するJSONフォーマット】
+{
+  "category": "アウター" | "トップス" | "ボトムス" | "シューズ" のいずれか1つ,
+  "subcategory": "アイテムの具体的なタイプ（例: Gジャン, カバーオール, Tシャツ, ワークシャツ, スウェット, ワークパンツ, 軍パン/カーゴ, デニム/ジーンズ, ブーツ, スニーカー など）",
+  "name": "魅力的なアイテム名（例: 濃紺 1stタイプ Tバック Gジャン, オリーブ M-47 フランス軍カーゴパンツ, ヘビーウェイト ポケットTシャツ など）",
+  "brand": "ロゴやタグ・特徴から推測されるブランド名（不明なら空文字 \"\"）",
+  "color": "色合い（例: 濃紺(インディゴ), オリーブ, スミ黒, キャメル, 生成り など）",
+  "fit": "シルエットや着用感（例: ボックス短丈, ワイドストレート, リラックスフィット, テーパード など）",
+  "tags": ["特徴や季節感タグの配列。例: 短丈, デニム, リジッド, 春秋用, 肉厚 など 3〜5個"],
+  "description": "着こなしの特徴やアピールポイント（20〜50文字程度。例: ワイドパンツと好相性なボックスシルエットのGジャン。）"
+}
+
+※Markdownのバッククォート（\`\`\`json ... \`\`\`）は含めず、純粋なJSONオブジェクト文字列のみを返してください。
+`;
+
+    const payload = {
+      contents: [
+        {
+          parts: [
+            { text: promptText },
+            {
+              inline_data: {
+                mime_type: mimeType,
+                data: base64Data
+              }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: "application/json"
+      }
+    };
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(`Gemini APIエラー (${res.status}): ${errJson.error ? errJson.error.message : res.statusText}`);
+    }
+
+    const data = await res.json();
+    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!candidateText) throw new Error("Geminiからの解析応答が空でした。");
+
+    return JSON.parse(candidateText.trim());
   }
 
   // フォームのリセット
