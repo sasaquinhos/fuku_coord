@@ -512,13 +512,20 @@
     }
 
     try {
-      if (dom.photoAnalyzingBox) dom.photoAnalyzingBox.style.display = "flex";
+      if (dom.photoAnalyzingBox) {
+        dom.photoAnalyzingBox.style.display = "flex";
+        if (dom.photoAnalyzingText) dom.photoAnalyzingText.textContent = "📷 写真を最適化中...";
+      }
 
-      // 画像をBase64に変換
-      const base64Data = await readFileAsBase64(file);
-      const mimeType = file.type || "image/jpeg";
+      // スマホ写真を軽量なJPEGに自動リサイズ・圧縮（爆速通信化）
+      const base64Data = await compressImageToJpegBase64(file, 1024, 0.8);
+      const mimeType = "image/jpeg";
 
-      // Gemini Visionで解析
+      if (dom.photoAnalyzingText) {
+        dom.photoAnalyzingText.textContent = "🤖 AIが服の形・色・特徴を分析中（数秒お待ちください）...";
+      }
+
+      // Gemini Visionで高速解析
       const analyzed = await analyzeClothesPhotoWithGemini(apiKey, base64Data, mimeType);
 
       if (analyzed) {
@@ -540,7 +547,7 @@
         }
         if (analyzed.description) dom.clothesDesc.value = analyzed.description;
 
-        alert(`✨ AIが写真から服の特徴を下書きしました！\n\n【アイテム名】: ${analyzed.name}\n【分類】: ${analyzed.category} / ${analyzed.subcategory || ""}\n【色】: ${analyzed.color || ""}\n【シルエット】: ${analyzed.fit || ""}\n\n内容を確認・必要に応じて微調整の上、下の「この服を登録する」ボタンを押してください。`);
+        alert(`✨ AIが写真から服の特徴を下書きしました！\n\n【アイテム名】: ${analyzed.name}\n【分類】: ${analyzed.category} / ${analyzed.subcategory || ""}\n【色】: ${analyzed.color || ""}\n【シルエット】: ${analyzed.fit || ""}\n\n内容を確認・微調整の上、一番下の「この服を登録する」ボタンを押してください。`);
       }
     } catch (err) {
       console.error("Photo analysis failed:", err);
@@ -551,64 +558,68 @@
     }
   }
 
-  function readFileAsBase64(file) {
+  // スマホ写真をブラウザ上で最大1024pxのJPEGに自動縮小・軽量化
+  function compressImageToJpegBase64(file, maxDimension = 1024, quality = 0.8) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result;
-        // data:image/jpeg;base64,xxxx のヘッダーをカット
-        const base64 = typeof result === "string" ? result.split(",")[1] : "";
-        resolve(base64);
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const dataUrl = canvas.toDataURL("image/jpeg", quality);
+          const base64 = dataUrl.split(",")[1];
+          resolve(base64);
+        };
+        img.onerror = () => reject(new Error("画像の読み込みに失敗しました。対応していない画像形式の可能性があります。"));
+        img.src = e.target.result;
       };
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
   }
 
-  // --- Gemini API 共通呼び出し（利用可能なモデルを自動検出 & 自動フォールバック） ---
+  // --- Gemini API 共通呼び出し（安全・高速なモデルフォールバック） ---
   async function callGeminiGenerateContent(apiKey, payload) {
-    // 試行するモデル候補（画像認識・テキスト両対応の標準モデル）
-    let targetModels = [
-      "gemini-2.5-flash",
+    // 試行するモデル候補（画像認識とテキストに対応した公式主力モデル順）
+    const targetModels = [
       "gemini-2.0-flash",
       "gemini-1.5-flash",
-      "gemini-1.5-pro",
-      "gemini-2.5-pro"
+      "gemini-2.5-flash",
+      "gemini-1.5-pro"
     ];
-
-    // APIキーで利用可能なモデル一覧を動的取得
-    try {
-      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        if (Array.isArray(listData.models)) {
-          // 音声合成(-tts)や特殊用途モデルを除外し、画像・テキスト対応モデルのみを抽出
-          const available = listData.models
-            .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
-            .map(m => m.name.replace(/^models\//, ""))
-            .filter(name => !name.includes("-tts") && !name.includes("-embedding") && !name.includes("imagen"));
-
-          // flash系を最優先
-          const flashes = available.filter(m => m.includes("flash"));
-          const others = available.filter(m => !m.includes("flash"));
-          if (flashes.length > 0 || others.length > 0) {
-            targetModels = [...flashes, ...others];
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("モデル一覧の取得をスキップし、既定候補を使用します:", e.message);
-    }
 
     let lastError = null;
     for (const model of targetModels) {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20秒タイムアウト
+
         const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (res.ok) {
           const data = await res.json();
@@ -619,15 +630,19 @@
         const msg = errJson.error ? errJson.error.message : res.statusText;
         lastError = new Error(`Gemini APIエラー (${res.status} [${model}]): ${msg}`);
 
-        // 404（存在しない）または 400（モダリティ非対応など）の場合は次のモデルへフォールバック
+        // 404（存在しない）または 400（モダリティ非対応等）は次候補モデルへスキップ
         if (res.status === 404 || res.status === 400) {
           console.warn(`[${model}] (${res.status}) エラーのため、次の候補モデルを試します...`);
           continue;
         }
 
-        // 認証エラー（401/403等）はそのまま通知
+        // 認証エラー（401/403等）は即座に通知
         throw lastError;
       } catch (err) {
+        if (err.name === "AbortError") {
+          console.warn(`[${model}] タイムアウトのため次モデルを試します...`);
+          continue;
+        }
         if (err.message && (err.message.includes("404") || err.message.includes("400"))) {
           lastError = err;
           continue;
@@ -637,6 +652,35 @@
     }
 
     throw lastError || new Error("利用可能なGeminiモデルが見つかりませんでした。APIキーを確認してください。");
+  }
+
+  // Gemini応答から思考(thought)やマークダウンを除去してJSONを抽出
+  function extractJsonFromGeminiResponse(data) {
+    const candidate = data.candidates?.[0];
+    if (!candidate || !candidate.content || !candidate.content.parts) {
+      throw new Error("Geminiからの応答データが空でした。");
+    }
+
+    const parts = candidate.content.parts;
+    let rawText = "";
+    // thoughtではないテキストを探す
+    for (const part of parts) {
+      if (part.text && !part.thought) {
+        rawText = part.text;
+        break;
+      }
+    }
+    if (!rawText && parts.length > 0) {
+      rawText = parts[parts.length - 1].text || "";
+    }
+
+    // { ... } のJSONブロックを正規表現で抽出
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("AIの応答からJSONを解析できませんでした:\n" + rawText.slice(0, 150));
+    }
+
+    return JSON.parse(jsonMatch[0]);
   }
 
   async function analyzeClothesPhotoWithGemini(apiKey, base64Data, mimeType) {
@@ -656,7 +700,7 @@
   "description": "着こなしの特徴やアピールポイント（20〜50文字程度。例: ワイドパンツと好相性なボックスシルエットのGジャン。）"
 }
 
-※Markdownのバッククォート（\`\`\`json ... \`\`\`）は含めず、純粋なJSONオブジェクト文字列のみを返してください。
+※純粋なJSONオブジェクトのみを出力してください。
 `;
 
     const payload = {
@@ -680,10 +724,7 @@
     };
 
     const data = await callGeminiGenerateContent(apiKey, payload);
-    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!candidateText) throw new Error("Geminiからの解析応答が空でした。");
-
-    return JSON.parse(candidateText.trim());
+    return extractJsonFromGeminiResponse(data);
   }
 
   // フォームのリセット
@@ -1039,10 +1080,7 @@ ${ctx.excludeIds && ctx.excludeIds.length > 0 ? `※ 直前の提案と被らな
     };
 
     const data = await callGeminiGenerateContent(apiKey, payload);
-    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!candidateText) throw new Error("Geminiからの応答が空でした。");
-
-    const parsed = JSON.parse(candidateText.trim());
+    const parsed = extractJsonFromGeminiResponse(data);
 
     const selOuter = clothes.find((c) => c.id === parsed.outerId) || clothes.find((c) => c.category === "アウター");
     const selTop = clothes.find((c) => c.id === parsed.topId) || clothes.find((c) => c.category === "トップス");
