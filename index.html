@@ -267,6 +267,25 @@
             </button>
           </div>
 
+          <!-- 📷 写真からAI自動入力バナー -->
+          <div class="ai-photo-upload-box">
+            <div class="ai-photo-icon">📷</div>
+            <div class="ai-photo-info">
+              <strong>写真からAI自動入力</strong>
+              <p>服を撮るだけで、分類・色・名前・タグ等を一瞬で自動推測して下書きします（写真は保存されません）</p>
+            </div>
+            <label class="btn-photo-upload" for="input-clothes-photo">
+              <span>📸 写真を選択 / 撮影</span>
+              <input type="file" id="input-clothes-photo" accept="image/*" style="display: none;">
+            </label>
+          </div>
+
+          <!-- 写真解析中インジケータ -->
+          <div id="photo-analyzing-box" class="photo-analyzing-overlay" style="display: none;">
+            <div class="spinner-small"></div>
+            <span id="photo-analyzing-text">🤖 AIが服の形・色・特徴を分析しています...</span>
+          </div>
+
           <!-- 分類 (カテゴリ) 選択 -->
           <div class="form-group">
             <label class="form-label">📂 アイテム分類</label>
