@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --primary: #1e3a8a;        /* インディゴネイビー */
   --primary-hover: #172554;
   --accent: #d97706;         /* アンバー/キャメル (ワーク感) */
@@ -697,4 +697,84 @@ header {
   background: #fef2f2;
   border-color: #ef4444;
   color: #b91c1c;
+}
+
+/* --- 写真からAI自動入力バナー --- */
+.ai-photo-upload-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1.5px dashed #10b981;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.ai-photo-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.ai-photo-info {
+  flex: 1;
+}
+
+.ai-photo-info strong {
+  display: block;
+  font-size: 13px;
+  color: #065f46;
+  margin-bottom: 2px;
+}
+
+.ai-photo-info p {
+  font-size: 11px;
+  color: #047857;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.btn-photo-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #059669;
+  color: white;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(5, 150, 105, 0.25);
+  transition: all 0.2s;
+}
+
+.btn-photo-upload:hover {
+  background: #047857;
+  transform: translateY(-1px);
+}
+
+.photo-analyzing-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-md);
+  padding: 10px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.spinner-small {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #bfdbfe;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
 }
