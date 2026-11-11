@@ -566,7 +566,7 @@
   }
 
   async function analyzeClothesPhotoWithGemini(apiKey, base64Data, mimeType) {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const promptText = `
 あなたはアメカジ・ワーク・ミリタリー・ヴィンテージファッションに精通したアパレル専門家です。
@@ -936,7 +936,7 @@
 
   // --- Gemini API (Google AI Studio) 呼び出し ---
   async function fetchGeminiStylist(apiKey, ctx) {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const promptText = `
 あなたはアメカジ・ワーク・ヴィンテージファッションに精通した一流のパーソナルスタイリストです。
