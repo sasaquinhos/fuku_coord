@@ -567,14 +567,13 @@
 
   // --- Gemini API 共通呼び出し（利用可能なモデルを自動検出 & 自動フォールバック） ---
   async function callGeminiGenerateContent(apiKey, payload) {
-    // 試行するモデル候補（デフォルト）
+    // 試行するモデル候補（画像認識・テキスト両対応の標準モデル）
     let targetModels = [
       "gemini-2.5-flash",
       "gemini-2.0-flash",
       "gemini-1.5-flash",
-      "gemini-1.5-flash-8b",
       "gemini-1.5-pro",
-      "gemini-2.0-flash-exp"
+      "gemini-2.5-pro"
     ];
 
     // APIキーで利用可能なモデル一覧を動的取得
@@ -583,10 +582,13 @@
       if (listRes.ok) {
         const listData = await listRes.json();
         if (Array.isArray(listData.models)) {
+          // 音声合成(-tts)や特殊用途モデルを除外し、画像・テキスト対応モデルのみを抽出
           const available = listData.models
             .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
-            .map(m => m.name.replace(/^models\//, ""));
+            .map(m => m.name.replace(/^models\//, ""))
+            .filter(name => !name.includes("-tts") && !name.includes("-embedding") && !name.includes("imagen"));
 
+          // flash系を最優先
           const flashes = available.filter(m => m.includes("flash"));
           const others = available.filter(m => !m.includes("flash"));
           if (flashes.length > 0 || others.length > 0) {
@@ -617,16 +619,16 @@
         const msg = errJson.error ? errJson.error.message : res.statusText;
         lastError = new Error(`Gemini APIエラー (${res.status} [${model}]): ${msg}`);
 
-        // 404（モデルが存在しない）なら次のモデルへフォールバック
-        if (res.status === 404) {
-          console.warn(`[${model}] 404 Not Found. 次の候補モデルを試します...`);
+        // 404（存在しない）または 400（モダリティ非対応など）の場合は次のモデルへフォールバック
+        if (res.status === 404 || res.status === 400) {
+          console.warn(`[${model}] (${res.status}) エラーのため、次の候補モデルを試します...`);
           continue;
         }
 
-        // 404以外の認証エラー等はそのまま通知
+        // 認証エラー（401/403等）はそのまま通知
         throw lastError;
       } catch (err) {
-        if (err.message && err.message.includes("404")) {
+        if (err.message && (err.message.includes("404") || err.message.includes("400"))) {
           lastError = err;
           continue;
         }
